@@ -8,8 +8,10 @@ import java.time.Instant;
  * accessors to JSON and deserialises via the canonical constructor.
  */
 public record LedgerEntry(
-        String id,
+        String accountId,
+        String transactionId,
         String description,
         BigDecimal amount,
         Instant createdAt) {
 }
+

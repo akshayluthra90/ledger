@@ -13,35 +13,47 @@ import java.net.URI;
 @RestController
 @RequestMapping("/api/ledger")
 public class LedgerController {
+
     private final LedgerService ledgerService;
 
     public LedgerController(LedgerService ledgerService) {
         this.ledgerService = ledgerService;
     }
 
-    @PostMapping
+    @PostMapping("/accounts")
+    public ResponseEntity<String> createAccount() {
+        String accountId = ledgerService.createAccount();
+        return ResponseEntity
+                .created(URI.create("/api/ledger/accounts/" + accountId))
+                .body(accountId);
+    }
+
+    @PostMapping("/deposit")
     public ResponseEntity<LedgerEntry> deposit(@Valid @RequestBody EntryRequest request) {
         LedgerEntry created = ledgerService.deposit(request);
         return ResponseEntity
-                .created(URI.create("/api/ledger/" + created.id()))
+                .created(URI.create("/api/ledger/ledger-entry/" + created.transactionId()))
                 .body(created);
     }
 
-    @GetMapping("/ledger-entry/{id}")
-    public ResponseEntity<LedgerEntry> get(@PathVariable String id) {
-        return null;
+    @PostMapping("/withdraw")
+    public ResponseEntity<LedgerEntry> withdraw(@Valid @RequestBody EntryRequest request) {
+        LedgerEntry created = ledgerService.withdraw(request);
+        return ResponseEntity
+                .created(URI.create("/api/ledger/ledger-entry/" + created.transactionId()))
+                .body(created);
     }
 
-
-    @DeleteMapping("/ledger-entry/{id}")
-    public ResponseEntity<Void> delete(@PathVariable String id) {
-        return ledgerService.delete(id)
-                ? ResponseEntity.noContent().build()
-                : ResponseEntity.notFound().build();
+    @GetMapping("/ledger-entry/{transactionId}")
+    public ResponseEntity<LedgerEntry> get(@PathVariable String transactionId) {
+        LedgerEntry entry = ledgerService.getTransaction(transactionId);
+        return (entry == null)
+                ? ResponseEntity.notFound().build()
+                : ResponseEntity.ok(entry);
     }
 
-    @GetMapping("/balance")
-    public BigDecimal balance() {
-        return ledgerService.balance();
+    @GetMapping("/accounts/{accountId}/balance")
+    public BigDecimal balance(@PathVariable String accountId) {
+        return ledgerService.balance(accountId);
     }
 }
