@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/ledger")
@@ -55,5 +56,14 @@ public class LedgerController {
     @GetMapping("/accounts/{accountId}/balance")
     public BigDecimal balance(@PathVariable String accountId) {
         return ledgerService.balance(accountId);
+    }
+
+    /**
+     * Transaction history for an account, oldest first. 404 if the account does
+     * not exist, so an unknown account is distinguishable from an empty one.
+     */
+    @GetMapping("/accounts/{accountId}/transactions")
+    public List<LedgerEntry> transactions(@PathVariable String accountId) {
+        return ledgerService.transactionHistory(accountId);
     }
 }

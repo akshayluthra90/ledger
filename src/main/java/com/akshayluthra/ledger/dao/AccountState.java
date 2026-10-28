@@ -43,14 +43,14 @@ final class AccountState {
     }
 
     /**
-     * Records an entry against this account and moves the balance.
+     * Records an entry against this account and moves the balance in the
+     * direction the entry carries.
      *
      * @param ledgerEntry the entry being recorded
-     * @param entryType   whether the amount is added or subtracted
      */
-    synchronized void apply(LedgerEntry ledgerEntry, EntryType entryType) {
+    synchronized void apply(LedgerEntry ledgerEntry) {
         transactionIds.add(ledgerEntry.transactionId());
-        balance = (entryType == EntryType.WITHDRAWAL)
+        balance = (ledgerEntry.entryType() == EntryType.WITHDRAWAL)
                 ? balance.subtract(ledgerEntry.amount())
                 : balance.add(ledgerEntry.amount());
     }

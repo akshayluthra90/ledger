@@ -1,7 +1,6 @@
 package com.akshayluthra.ledger.controller;
 
 import com.akshayluthra.ledger.exception.AccountNotFoundException;
-import com.akshayluthra.ledger.exception.DuplicateAccountException;
 import com.akshayluthra.ledger.exception.InsufficientFundsException;
 import com.akshayluthra.ledger.exception.NoRecordFoundException;
 
@@ -29,11 +28,6 @@ public class LedgerExceptionHandler {
     @ExceptionHandler(InsufficientFundsException.class)
     public ProblemDetail insufficientFunds(InsufficientFundsException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
-    }
-
-    @ExceptionHandler(DuplicateAccountException.class)
-    public ProblemDetail duplicateAccount(DuplicateAccountException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

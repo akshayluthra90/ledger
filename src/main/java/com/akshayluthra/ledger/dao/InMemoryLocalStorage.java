@@ -49,14 +49,17 @@ public class InMemoryLocalStorage implements LedgerStorage {
     }
 
     @Override
-    public String addRecord(LedgerEntry ledgerEntry, EntryType entryType) {
-        return post(ledgerEntry, entryType);
+    public String addRecord(LedgerEntry ledgerEntry) {
+        return post(ledgerEntry);
     }
 
     @Override
     public BigDecimal getBalance(String accountId) {
         AccountState account = accountStorage.get(accountId);
-        return (account == null) ? BigDecimal.ZERO : account.balance();
+        if (account == null) {
+            throw new AccountNotFoundException(accountId);
+        }
+        return account.balance();
     }
 
     @Override
@@ -93,20 +96,23 @@ public class InMemoryLocalStorage implements LedgerStorage {
      * All entries for an account, oldest first. Empty if the account has none.
      * The ids held on the account are resolved against
      * {@link #transactionStorage} here.
+     *
+     * <p>Resolving happens outside the monitor, which is safe because
+     * {@link #post} writes the entry to {@code transactionStorage} before adding
+     * its id to the account. Any id visible in that list therefore already has
+     * an entry behind it.
      */
+    @Override
     public List<LedgerEntry> getRecordsForAccount(String accountId) {
         AccountState account = accountStorage.get(accountId);
         if (account == null) {
-            return List.of();
+            throw new AccountNotFoundException(accountId);
         }
 
         List<String> transactionIds = account.transactionIds();
         List<LedgerEntry> entries = new ArrayList<>(transactionIds.size());
         for (String transactionId : transactionIds) {
-            LedgerEntry entry = transactionStorage.get(transactionId);
-            if (entry != null) {
-                entries.add(entry);
-            }
+            entries.add(transactionStorage.get(transactionId));
         }
         return List.copyOf(entries);
     }
@@ -117,10 +123,9 @@ public class InMemoryLocalStorage implements LedgerStorage {
      * <p>Order inside the lock matters: every rejection happens before anything
      * is written, so a rejected request leaves no trace.
      *
-     * @param entryType whether the amount is added to or taken from the balance
      * @return the id of the recorded transaction
      */
-    private String post(LedgerEntry ledgerEntry, EntryType entryType) {
+    private String post(LedgerEntry ledgerEntry) {
         // The amount should be positive for transaction to be valid.
         if (ledgerEntry.amount() == null || ledgerEntry.amount().signum() <= 0) {
             throw new IllegalArgumentException(
@@ -137,7 +142,7 @@ public class InMemoryLocalStorage implements LedgerStorage {
 
         synchronized (account) {
             // Throw an exception if sufficient funds are not available.
-            if (entryType == EntryType.WITHDRAWAL
+            if (ledgerEntry.entryType() == EntryType.WITHDRAWAL
                     && account.balance().compareTo(ledgerEntry.amount()) < 0) {
                 throw new InsufficientFundsException(ledgerEntry.accountId());
             }
@@ -146,7 +151,7 @@ public class InMemoryLocalStorage implements LedgerStorage {
                 throw new DuplicateTransactionException(ledgerEntry.transactionId());
             }
 
-            account.apply(ledgerEntry, entryType);
+            account.apply(ledgerEntry);
         }
 
         return ledgerEntry.transactionId();
