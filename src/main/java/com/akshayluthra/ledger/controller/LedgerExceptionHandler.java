@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 /**
  * Maps domain exceptions to HTTP statuses.
  *
- * <p>Without this every one of these is a 500, because they all extend
+ * <Without this every one of these is a 500, because they all (or most of them) extend
  * {@code RuntimeException}. The service deliberately lets them propagate rather
  * than wrapping them, so that the distinction between "the caller asked for
  * something impossible" and "we failed" is preserved up to this point.

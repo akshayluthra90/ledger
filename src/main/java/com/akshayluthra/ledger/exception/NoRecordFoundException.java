@@ -1,5 +1,8 @@
 package com.akshayluthra.ledger.exception;
 
+/**
+ * Exception class for instance when a particular requested record is not found.
+ */
 public class NoRecordFoundException extends RuntimeException {
     public NoRecordFoundException(String id) {
         super("No record found exception : " + id);

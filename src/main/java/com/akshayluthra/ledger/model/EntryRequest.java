@@ -11,7 +11,7 @@ import java.math.BigDecimal;
  * Inbound payload. Kept separate from {@link LedgerEntry} so clients cannot set
  * server-owned fields like {@code transactionId} or {@code createdAt}.
  *
- * <p>Every field is bounded. {@code BigDecimal} is arbitrary-precision, so
+ * Every field is bounded and validated. {@code BigDecimal} is arbitrary-precision, so
  * without {@link Digits} a request can carry an amount with a thousand digits
  * or a fraction of a cent, and without {@link Size} the strings are a way to
  * push unbounded data into a store that never expires.

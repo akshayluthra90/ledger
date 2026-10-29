@@ -326,9 +326,9 @@ class LedgerServiceTest {
 
         // Exactly one deposit was applied...
         assertThat(service.balance(accountId)).isEqualByComparingTo("10.00");
-        // ...every caller got that same transaction back...
+        // Every caller got that same transaction back...
         assertThat(transactionIds).hasSize(1);
-        // ...and nobody was turned away while it was being written.
+        // Nobody was turned away while it was being written.
         assertThat(succeeded.get()).isEqualTo(threads);
     }
 }

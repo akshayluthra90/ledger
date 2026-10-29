@@ -1,23 +1,11 @@
 package com.akshayluthra.ledger.controller;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import com.akshayluthra.ledger.exception.AccountNotFoundException;
 import com.akshayluthra.ledger.exception.InsufficientFundsException;
 import com.akshayluthra.ledger.model.EntryRequest;
 import com.akshayluthra.ledger.model.EntryType;
 import com.akshayluthra.ledger.model.LedgerEntry;
 import com.akshayluthra.ledger.service.LedgerService;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.List;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -25,8 +13,19 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 /**
- * Tests for {@link LedgerService}
+ * Tests for {@link LedgerController}
  * Checks that service exceptions reach the client as the intended HTTP status.
  */
 @WebMvcTest(LedgerController.class)

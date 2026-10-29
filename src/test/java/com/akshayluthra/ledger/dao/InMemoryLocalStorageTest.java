@@ -23,6 +23,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Test class for {@link InMemoryLocalStorage}
+ */
 public class InMemoryLocalStorageTest {
 
     private static final String TEST_ACCOUNT_ID = "test_account_id";

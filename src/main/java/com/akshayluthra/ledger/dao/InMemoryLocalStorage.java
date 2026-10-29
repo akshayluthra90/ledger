@@ -20,10 +20,6 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * The per-account state lives in {@link AccountState}, and that object's
  * monitor provides the write lock on this.
- *
- * This class is deliberately dumb: it knows about transaction ids and
- * balances only. Request-level concerns such as idempotency live above it, so
- * they are implemented once rather than per storage backend.
  */
 @Repository
 public class InMemoryLocalStorage implements LedgerStorage {

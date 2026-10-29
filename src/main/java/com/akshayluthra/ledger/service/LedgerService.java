@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Ledger Service to service all ledger requests.
- * <p>
+ *
  * Note : Idempotency is handled here rather than in the storage layer because the key
  * identifies a client request, not a stored row, so the logic belongs above the
  * DAO layer we created and is written once.
@@ -115,7 +115,7 @@ public class LedgerService {
     /**
      * Records an entry, replaying the original result if this request has
      * already been applied.
-     * <p>
+     *
      * The key is only ever present for a write that succeeded. A rejected
      * request leaves no key behind, so the client can retry with the same one —
      * otherwise a withdrawal refused for insufficient funds would burn its key
@@ -187,12 +187,7 @@ public class LedgerService {
     }
 
     /**
-     * Bounds every field the caller controls.
-     *
-     * <p>This duplicates the Bean Validation constraints on {@link EntryRequest}
-     * on purpose. Those only run for requests arriving over HTTP; a direct
-     * caller — including these tests — bypasses them entirely, and the limits
-     * below are the kind that corrupt stored data rather than just the response.
+     * Bounds every field the caller controls. A validation function to validate the request.
      */
     private void checkIfValidRequest(EntryRequest request) {
         if (request.accountId() == null || request.accountId().isBlank()) {
@@ -231,6 +226,10 @@ public class LedgerService {
         }
     }
 
+    /**
+     * Function to generate a unique Transaction Id
+     * @return transaction id.
+     */
     private String getTransactionId() {
         return UUID.randomUUID().toString();
     }
