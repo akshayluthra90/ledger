@@ -6,6 +6,7 @@ import com.akshayluthra.ledger.exception.DuplicateTransactionException;
 import com.akshayluthra.ledger.model.EntryRequest;
 import com.akshayluthra.ledger.model.EntryType;
 import com.akshayluthra.ledger.model.LedgerEntry;
+import com.akshayluthra.ledger.model.RecordedEntry;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -79,14 +80,14 @@ public class LedgerService {
     /**
      * Function to deposit money and log the transaction.
      */
-    public LedgerEntry deposit(EntryRequest request) {
+    public RecordedEntry deposit(EntryRequest request) {
         return addRecord(request, EntryType.DEPOSIT);
     }
 
     /**
      * Function to withdraw money and log the transaction.
      */
-    public LedgerEntry withdraw(EntryRequest request) {
+    public RecordedEntry withdraw(EntryRequest request) {
         return addRecord(request, EntryType.WITHDRAWAL);
     }
 
@@ -122,23 +123,43 @@ public class LedgerService {
      * and every later retry would be answered with a transaction that was never
      * recorded.
      */
-    private LedgerEntry addRecord(EntryRequest request, EntryType entryType) {
+    private RecordedEntry addRecord(EntryRequest request, EntryType entryType) {
         // Check if the request is valid.
         checkIfValidRequest(request);
         String idempotencyKey = request.idempotencyKey();
 
-        String accountIdempotencyKey = request.accountId() + ":" + idempotencyKey;
+        // Trimmed, so " dep-1" and "dep-1 " are the same key. Surrounding
+        // whitespace is invisible and usually accidental — picked up from a
+        // config file or a copy-paste — and without this a retry carrying a
+        // stray space would be treated as a brand new request and applied
+        // twice. Case is left alone: keys are opaque, so "DEP-1" is a
+        // different key on purpose.
+        String accountIdempotencyKey = request.accountId() + ":" + idempotencyKey.trim();
+
+        // Set only when this call is the one that writes, so it stays null on a
+        // replay. That is how we know which HTTP status the caller should get.
+        // The lambda runs synchronously on this thread, so reading it after
+        // computeIfAbsent returns is safe.
+        LedgerEntry[] written = new LedgerEntry[1];
 
         // computeIfAbsent is the check and the add in one atomic step, and it
         // runs the write inside that step. As everything happens within the compute if absent block, we dont need
         // explicitly define any removal of the accountIdempotencyKey if the transaction failed to be stored.
         String transactionId = idempotencyKeyTraceMap.computeIfAbsent(
-                accountIdempotencyKey, ignored -> writeToStorage(request, entryType, getTransactionId()).transactionId());
+                accountIdempotencyKey, ignored -> {
+                    written[0] = writeToStorage(request, entryType, getTransactionId());
+                    return written[0].transactionId();
+                });
+
+        if (written[0] != null) {
+            // Nothing to compare against: this request produced the entry.
+            return new RecordedEntry(written[0], true);
+        }
 
         LedgerEntry originalEntry = ledgerStorage.getTransaction(transactionId);
         checkReplayMatchesOriginal(request, entryType, originalEntry);
 
-        return originalEntry;
+        return new RecordedEntry(originalEntry, false);
     }
 
     /**
@@ -148,9 +169,8 @@ public class LedgerService {
      * transaction succeeded and handed a receipt for an entirely different one —
      * a withdrawal request answered with an earlier deposit, for instance.
      * <p>
-     * Note : On a first write this compares the entry against the request that just
-     * produced it, which always matches. That keeps one code path instead of unnecessary
-     * branching on whether the key was already present.
+     * Note : only called on an actual replay. A first write has nothing to
+     * compare itself against.
      */
     private void checkReplayMatchesOriginal(
             EntryRequest request, EntryType entryType, LedgerEntry originalEntry) {

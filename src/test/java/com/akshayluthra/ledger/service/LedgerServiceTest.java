@@ -89,11 +89,21 @@ class LedgerServiceTest {
     void repeatedKeyReplaysTheOriginalAndAppliesOnce() {
         String accountId = service.createAccount();
 
-        LedgerEntry first = service.deposit(request(accountId, "100.00", IDEMPOTENCY_KEY_1));
-        LedgerEntry replay = service.deposit(request(accountId, "100.00", IDEMPOTENCY_KEY_1));
+        LedgerEntry first = service.deposit(request(accountId, "100.00", IDEMPOTENCY_KEY_1)).entry();
+        LedgerEntry replay = service.deposit(request(accountId, "100.00", IDEMPOTENCY_KEY_1)).entry();
 
         assertThat(replay.transactionId()).isEqualTo(first.transactionId());
         assertThat(service.balance(accountId)).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void onlyTheFirstWriteIsFlaggedAsCreated() {
+        String accountId = service.createAccount();
+
+        // Drives the HTTP status: a first write is a 201, a replay created
+        // nothing and is a 200.
+        assertThat(service.deposit(request(accountId, "10.00", IDEMPOTENCY_KEY_1)).created()).isTrue();
+        assertThat(service.deposit(request(accountId, "10.00", IDEMPOTENCY_KEY_1)).created()).isFalse();
     }
 
     @Test
@@ -136,12 +146,39 @@ class LedgerServiceTest {
     }
 
     @Test
+    void surroundingWhitespaceOnAKeyIsIgnored() {
+        String accountId = service.createAccount();
+        LedgerEntry first = service.deposit(request(accountId, "10.00", IDEMPOTENCY_KEY_1)).entry();
+
+        // A stray space is invisible and almost always accidental, so a retry
+        // carrying one is the same request, not a new one.
+        LedgerEntry padded = service.deposit(request(accountId, "10.00", " " + IDEMPOTENCY_KEY_1)).entry();
+        LedgerEntry trailing = service.deposit(request(accountId, "10.00", IDEMPOTENCY_KEY_1 + "  ")).entry();
+
+        assertThat(padded.transactionId()).isEqualTo(first.transactionId());
+        assertThat(trailing.transactionId()).isEqualTo(first.transactionId());
+        assertThat(service.balance(accountId)).isEqualByComparingTo("10.00");
+        assertThat(service.transactionHistory(accountId)).hasSize(1);
+    }
+
+    @Test
+    void keysAreCaseSensitive() {
+        String accountId = service.createAccount();
+        service.deposit(request(accountId, "10.00", "dep-1"));
+
+        // Unlike whitespace, case is meaningful: keys are opaque strings.
+        service.deposit(request(accountId, "10.00", "DEP-1"));
+
+        assertThat(service.balance(accountId)).isEqualByComparingTo("20.00");
+    }
+
+    @Test
     void replayIsNotRejectedForAmountScaleAlone() {
         String accountId = service.createAccount();
-        LedgerEntry first = service.deposit(request(accountId, "10.00", IDEMPOTENCY_KEY_1));
+        LedgerEntry first = service.deposit(request(accountId, "10.00", IDEMPOTENCY_KEY_1)).entry();
 
         // 10.0 and 10.00 are the same amount, so this is a genuine retry.
-        LedgerEntry replay = service.deposit(request(accountId, "10.0", IDEMPOTENCY_KEY_1));
+        LedgerEntry replay = service.deposit(request(accountId, "10.0", IDEMPOTENCY_KEY_1)).entry();
 
         assertThat(replay.transactionId()).isEqualTo(first.transactionId());
         assertThat(service.balance(accountId)).isEqualByComparingTo("10.00");
@@ -169,7 +206,7 @@ class LedgerServiceTest {
 
         // The same key must still be usable, otherwise every later retry would
         // be answered with a transaction that was never recorded.
-        LedgerEntry retried = service.withdraw(request(accountId, "20.00", IDEMPOTENCY_KEY_2));
+        LedgerEntry retried = service.withdraw(request(accountId, "20.00", IDEMPOTENCY_KEY_2)).entry();
 
         assertThat(retried).isNotNull();
         assertThat(service.balance(accountId)).isEqualByComparingTo("30.00");
@@ -310,7 +347,7 @@ class LedgerServiceTest {
             pool.submit(() -> {
                 try {
                     start.await();
-                    transactionIds.add(service.deposit(request(accountId, "10.00", "key-3")).transactionId());
+                    transactionIds.add(service.deposit(request(accountId, "10.00", "key-3")).entry().transactionId());
                     succeeded.incrementAndGet();
                 } catch (Exception ignored) {
                     // failures show up as a short count or a wrong balance below

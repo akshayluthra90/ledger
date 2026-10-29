@@ -2,7 +2,7 @@
 
 A small HTTP service for recording money movements against accounts. You can open an
 account, deposit, withdraw, check the balance, and read back the transaction history.
-No UI, no database — everything lives in memory and resets when you stop the app.
+No UI, no database, and everything lives in memory and resets when you stop the app.
 
 ## Assumptions
 - I have not added a functionality for account deletion (although implemented at the storage level, I have not exposed the functionality), as deleting an 
@@ -30,7 +30,7 @@ tried to keep this as simple and optimised as possible and specifically made for
 In a system where all the functionality is added, we might need either more complex data structures or more data 
 structures to maintain and store all the required relations just like in a normalised DB.
 
-- Have added the following explicit checks to ensure we have proper controlled validations for the inputs :
+- Have made following assumptions and as well added the  explicit checks to ensure we have proper controlled validations for the inputs :
   - One cannot deposit money with granularity less than a cent. In other words, a cent is the smallest denomination.
   - The maximum amount that can be deposited or withdrawn in a transaction has been limited to less than 10^15, as we don't want an erroneous input.
   - We have kept the description length on any transaction to be at most 256 chars.
@@ -41,8 +41,13 @@ structures to maintain and store all the required relations just like in a norma
 to call the account creation API first to get an accountId.
 
 - Idempotency key maps to an account : If an idempotency key is repeated and I find that the whole transaction matches 
-with the previous one, I return a 201 with the details of the previous transaction that has already been performed. 
-If there is a match found but the content is different from the previous transaction, we throw an exception.
+with the previous one, I return a 200 with the details of the previous transaction that has already been performed 
+(a 201 would claim something was created, when nothing was). If there is a match found but the content is different 
+from the previous transaction, we throw an exception.
+
+- Surrounding whitespace on an idempotency key is ignored, so " dep-1" and "dep-1" are the same key. A stray space is
+invisible and usually accidental, and without trimming a retry carrying one would be applied a second time. Case is
+deliberately left alone, as keys are opaque strings and "DEP-1" is a different key on purpose.
 
 
 ## Running it
@@ -64,8 +69,7 @@ the only prerequisite.
 ./mvnw test
 ```
 
-63 tests covering the storage, service and HTTP layers. Two of them use thread pools to check
-that concurrent withdrawals can't overdraw an account.
+Tests covering the storage, service and HTTP layers.
 
 ## The API
 
@@ -157,6 +161,9 @@ You get back the *same* `transactionId`, and the balance doesn't move. That's th
 if your connection drops and you never see the response, you can safely retry instead of
 guessing whether the money landed.
 
+The status is `200 OK` rather than the `201 Created` you got the first time, because this
+request created nothing — it handed back what already existed.
+
 <b>NOTE :</b>  If you reuse that key for something different, it's rejected:
 
 ```bash
@@ -174,6 +181,8 @@ Otherwise you'd ask to deposit 5000 and get handed a receipt for 1000.
 
 | Code | When |
 |---|---|
+| `200` | Read succeeded, or a replayed request returned its original transaction |
+| `201` | A new account or ledger entry was created |
 | `400` | Bad input — malformed JSON, missing field, negative amount, key reused with different content |
 | `404` | Account or transaction doesn't exist |
 | `422` | Request is fine but the balance won't allow it |

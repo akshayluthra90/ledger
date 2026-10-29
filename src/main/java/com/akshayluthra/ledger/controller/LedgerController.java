@@ -1,7 +1,9 @@
 package com.akshayluthra.ledger.controller;
 
+import com.akshayluthra.ledger.exception.NoRecordFoundException;
 import com.akshayluthra.ledger.model.EntryRequest;
 import com.akshayluthra.ledger.model.LedgerEntry;
+import com.akshayluthra.ledger.model.RecordedEntry;
 import com.akshayluthra.ledger.service.LedgerService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -43,10 +45,7 @@ public class LedgerController {
      */
     @PostMapping("/deposit")
     public ResponseEntity<LedgerEntry> deposit(@Valid @RequestBody EntryRequest request) {
-        LedgerEntry created = ledgerService.deposit(request);
-        return ResponseEntity
-                .created(URI.create("/api/ledger/ledger-entry/" + created.transactionId()))
-                .body(created);
+        return respond(ledgerService.deposit(request));
     }
 
     /**
@@ -56,10 +55,23 @@ public class LedgerController {
      */
     @PostMapping("/withdraw")
     public ResponseEntity<LedgerEntry> withdraw(@Valid @RequestBody EntryRequest request) {
-        LedgerEntry created = ledgerService.withdraw(request);
+        return respond(ledgerService.withdraw(request));
+    }
+
+    /**
+     * 201 Created for a new entry, 200 OK when an idempotency key was replayed
+     * and nothing was created.
+     */
+    private static ResponseEntity<LedgerEntry> respond(RecordedEntry recorded) {
+        LedgerEntry entry = recorded.entry();
+
+        if (!recorded.created()) {
+            return ResponseEntity.ok(entry);
+        }
+
         return ResponseEntity
-                .created(URI.create("/api/ledger/ledger-entry/" + created.transactionId()))
-                .body(created);
+                .created(URI.create("/api/ledger/ledger-entry/" + entry.transactionId()))
+                .body(entry);
     }
 
     /**
@@ -68,11 +80,16 @@ public class LedgerController {
      * @return {@link LedgerEntry}
      */
     @GetMapping("/ledger-entry/{transactionId}")
-    public ResponseEntity<LedgerEntry> getTransaction(@PathVariable String transactionId) {
+    public LedgerEntry getTransaction(@PathVariable String transactionId) {
         LedgerEntry entry = ledgerService.getTransaction(transactionId);
-        return (entry == null)
-                ? ResponseEntity.notFound().build()
-                : ResponseEntity.ok(entry);
+
+        // Thrown rather than building the 404 by hand, so this one gets the same
+        // ProblemDetail body as every other error instead of an empty response.
+        if (entry == null) {
+            throw new NoRecordFoundException(transactionId);
+        }
+
+        return entry;
     }
 
     /**

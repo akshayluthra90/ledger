@@ -5,6 +5,7 @@ import com.akshayluthra.ledger.exception.InsufficientFundsException;
 import com.akshayluthra.ledger.model.EntryRequest;
 import com.akshayluthra.ledger.model.EntryType;
 import com.akshayluthra.ledger.model.LedgerEntry;
+import com.akshayluthra.ledger.model.RecordedEntry;
 import com.akshayluthra.ledger.service.LedgerService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,11 @@ class LedgerControllerTest {
     @MockitoBean
     private LedgerService ledgerService;
 
+    private static LedgerEntry entry(String transactionId, EntryType entryType) {
+        return new LedgerEntry(TEST_ACCOUNT_ID, transactionId, entryType,
+                "test", new BigDecimal("10.00"), Instant.EPOCH);
+    }
+
     @Test
     void unknownAccountReturnsNoAccountFound() throws Exception {
         given(ledgerService.deposit(any(EntryRequest.class)))
@@ -66,6 +72,41 @@ class LedgerControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(DEPOSIT_BODY))
                 .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void freshDepositReturnsCreated() throws Exception {
+        given(ledgerService.deposit(any(EntryRequest.class)))
+                .willReturn(new RecordedEntry(entry(TEST_TXN_1, EntryType.DEPOSIT), true));
+
+        mockMvc.perform(post("/api/ledger/deposit")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(DEPOSIT_BODY))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.transactionId").value(TEST_TXN_1));
+    }
+
+    @Test
+    void replayedDepositReturnsOkNotCreated() throws Exception {
+        given(ledgerService.deposit(any(EntryRequest.class)))
+                .willReturn(new RecordedEntry(entry(TEST_TXN_1, EntryType.DEPOSIT), false));
+
+        // A replay created nothing, so 201 would be a lie.
+        mockMvc.perform(post("/api/ledger/deposit")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(DEPOSIT_BODY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionId").value(TEST_TXN_1));
+    }
+
+    @Test
+    void unknownTransactionReturnsNotFoundWithABody() throws Exception {
+        given(ledgerService.getTransaction(TEST_TXN_1)).willReturn(null);
+
+        // Same ProblemDetail shape as every other error, not an empty 404.
+        mockMvc.perform(get("/api/ledger/ledger-entry/" + TEST_TXN_1))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("No record found exception : " + TEST_TXN_1));
     }
 
     @Test

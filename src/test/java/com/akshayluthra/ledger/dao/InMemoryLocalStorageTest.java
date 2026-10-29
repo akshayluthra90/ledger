@@ -155,7 +155,7 @@ public class InMemoryLocalStorageTest {
     }
 
     @Test
-    void withdrawalFromAnEmptyAccountThrows() {
+    void withdrawalFromAnEmptyAccountThrowsException() {
         assertThatThrownBy(() -> localStorage.addRecord(withdrawal("0.01")))
                 .isInstanceOf(InsufficientFundsException.class);
     }
@@ -282,7 +282,7 @@ public class InMemoryLocalStorageTest {
     @Test
     void getTransactionReturnsNullForUnknownId() {
         // Null rather than an exception: the service turns this into the 404.
-        assertThat(localStorage.getTransaction("no_such_transaction")).isNull();
+        assertThat(localStorage.getTransaction("invalid_transaction_id")).isNull();
     }
 
     // ---------- history ----------

@@ -4,10 +4,13 @@ import com.akshayluthra.ledger.exception.AccountNotFoundException;
 import com.akshayluthra.ledger.exception.InsufficientFundsException;
 import com.akshayluthra.ledger.exception.NoRecordFoundException;
 
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Maps domain exceptions to HTTP statuses.
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * something impossible" and "we failed" is preserved up to this point.
  */
 @RestControllerAdvice
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class LedgerExceptionHandler {
 
     @ExceptionHandler({AccountNotFoundException.class, NoRecordFoundException.class})
@@ -33,5 +37,10 @@ public class LedgerExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail badRequest(IllegalArgumentException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail noHandler(NoResourceFoundException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "No such endpoint");
     }
 }
