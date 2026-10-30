@@ -15,10 +15,14 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 /**
  * Maps domain exceptions to HTTP statuses.
  *
- * <Without this every one of these is a 500, because they all (or most of them) extend
+ * <p>Without this every one of these is a 500, because they all (or most of them) extend
  * {@code RuntimeException}. The service deliberately lets them propagate rather
  * than wrapping them, so that the distinction between "the caller asked for
  * something impossible" and "we failed" is preserved up to this point.
+ *
+ * <p>Ordered ahead of Spring's own handling so the unmapped-path message can be
+ * replaced. Exception types not declared here still fall through to Spring,
+ * which is where 405, 406 and 415 come from.
  */
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)

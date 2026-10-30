@@ -123,8 +123,9 @@ class LedgerServiceTest {
         String accountId = service.createAccount();
         service.deposit(request(accountId, "10.00", IDEMPOTENCY_KEY_1));
 
-        // Previously this returned 201 with the earlier DEPOSIT entry, so a
-        // withdrawal request was answered with a deposit receipt.
+        // Without this check the withdrawal would be answered with the earlier
+        // deposit's entry, telling the caller their withdrawal succeeded and
+        // handing them a receipt for the wrong direction.
         assertThatThrownBy(() -> service.withdraw(request(accountId, "10.00", IDEMPOTENCY_KEY_1)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("reused with a different request");

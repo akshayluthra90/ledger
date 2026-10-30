@@ -77,7 +77,7 @@ Base path is `/api/ledger`.
 
 | Method | Path | What it does |
 |---|---|---|
-| `POST` | `/accounts` | Opens an account. Returns the new id as plain text. |
+| `POST` | `/accounts` | Opens an account. Returns `{"accountId": "..."}`. |
 | `POST` | `/deposit` | Records money in. |
 | `POST` | `/withdraw` | Records money out. Refused if the balance is too low. |
 | `GET` | `/accounts/{accountId}/balance` | Current balance. |
@@ -104,8 +104,10 @@ Open an account and keep the id handy:
 
 ```bash
 B=http://localhost:8080/api/ledger
-ACC=$(curl -s -X POST $B/accounts); echo $ACC
+ACC=$(curl -s -X POST $B/accounts | sed 's/.*"accountId":"\([^"]*\)".*/\1/'); echo $ACC
 ```
+
+(`| jq -r .accountId` is nicer if you have jq, but the `sed` above needs nothing extra.)
 
 Deposit, then withdraw:
 
@@ -133,7 +135,7 @@ Each returns the entry that was created:
 Balance and history:
 
 ```bash
-curl -s $B/accounts/$ACC/balance        # 749.50
+curl -s $B/accounts/$ACC/balance        # {"accountId":"a8550b5c-...","balance":749.50}
 curl -s $B/accounts/$ACC/transactions   # both entries, oldest first
 ```
 
@@ -195,32 +197,30 @@ and that same withdrawal goes through.
 
 ## Decisions and trade-offs
 
-**Everything is in memory.** Two maps: one of transactions keyed by id, one of accounts
+- **Everything is in memory.** Two maps: one of transactions keyed by id, one of accounts
 holding a running balance. Restarting loses everything. The brief asked for this.
 
-**Balances are stored, not recalculated.** Reading a balance is a map lookup rather than a
+- **Balances are stored, not recalculated.** Reading a balance is a map lookup rather than a
 sum over every past entry. Faster, but it means the balance and the entries could in
 principle disagree — which is why they're only ever updated together, under one lock.
 
-**Locking is per account.** Each account has its own monitor, and a write holds it across
+- **Locking is per account.** Each account has its own monitor, and a write holds it across
 the overdraft check, the entry write and the balance update. Two people moving money on
 different accounts never wait for each other. Two on the same account take turns, so you
 can't overdraw by racing.
 
-**Idempotency keys are mandatory.** A key plus an account identifies one intended
-operation. Send the same one twice and the second is treated as a retry. This means
-**your client has to generate a fresh key per operation** — if you hardcode one, your
-second genuine deposit will be silently swallowed as a duplicate. A UUID minted when the
-user taps the button is the usual approach.
+- **Idempotency keys are mandatory.** A key plus an account identifies one intended
+operation. Send the same one twice and the second is treated as a retry. This means 
+**your client has to generate a fresh key per operation**
 
-**A rejected request doesn't consume its key.** If a withdrawal is refused for insufficient
+- **A rejected request doesn't consume its key.** If a withdrawal is refused for insufficient
 funds, you can retry with the same key once there's money. Only successful writes are
 remembered.
 
-**Keys are never expired.** The map of used keys grows forever. A real service would drop
-them after a day or so. Left out to keep things simple.
+- **Keys are never expired.** The map of used keys grows forever. A real service would drop
+them after a day or so. Left out clearing the keys to keep things simple.
 
-**Amounts are capped at two decimal places** and just under 10^15. `BigDecimal` is
+- **Amounts are capped at two decimal places** and just under 10^15. `BigDecimal` is
 arbitrary-precision, so without limits you can deposit a thousand-digit number or a
 fraction of a cent.
 

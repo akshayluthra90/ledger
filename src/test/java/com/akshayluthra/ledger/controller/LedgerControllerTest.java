@@ -22,12 +22,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Tests for {@link LedgerController}
- * Checks that service exceptions reach the client as the intended HTTP status.
+ * Checks the HTTP surface: that service exceptions reach the client as the
+ * intended status, and that responses have the shape callers are promised.
+ * The service itself is mocked, so the rules it enforces are covered by
+ * {@code LedgerServiceTest} instead.
  */
 @WebMvcTest(LedgerController.class)
 class LedgerControllerTest {
@@ -72,6 +76,28 @@ class LedgerControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(DEPOSIT_BODY))
                 .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void createAccountPointsLocationAtSomethingThatExists() throws Exception {
+        given(ledgerService.createAccount()).willReturn(TEST_ACCOUNT_ID);
+
+        mockMvc.perform(post("/api/ledger/accounts"))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location",
+                        "/api/ledger/accounts/" + TEST_ACCOUNT_ID + "/balance"))
+                // An object, not a bare id string, so the field names itself.
+                .andExpect(jsonPath("$.accountId").value(TEST_ACCOUNT_ID));
+    }
+
+    @Test
+    void balanceIsReturnedAsAnObject() throws Exception {
+        given(ledgerService.balance(TEST_ACCOUNT_ID)).willReturn(new BigDecimal("749.50"));
+
+        mockMvc.perform(get("/api/ledger/accounts/" + TEST_ACCOUNT_ID + "/balance"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountId").value(TEST_ACCOUNT_ID))
+                .andExpect(jsonPath("$.balance").value(749.50));
     }
 
     @Test

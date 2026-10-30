@@ -38,7 +38,7 @@
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
-    <!-- Bean Validation (@Valid, @NotBlank, ...) -->
+    <!-- Bean Validation (@Valid, @NotBlank, etc) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>

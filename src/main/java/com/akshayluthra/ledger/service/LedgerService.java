@@ -122,6 +122,8 @@ public class LedgerService {
      * otherwise a withdrawal refused for insufficient funds would burn its key
      * and every later retry would be answered with a transaction that was never
      * recorded.
+     *
+     * @return the entry, flagged with whether this call is what created it
      */
     private RecordedEntry addRecord(EntryRequest request, EntryType entryType) {
         // Check if the request is valid.

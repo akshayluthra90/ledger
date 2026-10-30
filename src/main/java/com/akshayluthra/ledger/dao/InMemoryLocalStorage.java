@@ -15,11 +15,15 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * In memory local storage class for storing data in memory.
  *
- * Two maps are held, but they play different roles. {@code transactionStorage}
- * is the source of truth: one entry per transaction id.
+ * Two maps are held, and they play different roles. {@code transactionStorage}
+ * is the source of truth: one entry per transaction id. {@code accountStorage}
+ * is an index into it, keyed by account, carrying that account's running
+ * balance and the ids of the entries that produced it.
  *
  * The per-account state lives in {@link AccountState}, and that object's
- * monitor provides the write lock on this.
+ * monitor is the write lock. A write holds it across the overdraft check, the
+ * entry write and the balance update, so none of those can interleave for a
+ * given account. Different accounts never lock each other or contend.
  */
 @Repository
 public class InMemoryLocalStorage implements LedgerStorage {
